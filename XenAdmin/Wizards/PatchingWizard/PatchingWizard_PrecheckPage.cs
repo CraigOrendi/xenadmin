@@ -284,6 +284,8 @@ namespace XenAdmin.Wizards.PatchingWizard
                 var groups = update != null ? GenerateChecks(update) : GenerateChecks(patch); //patch is expected to be null for RPU
 
                 int totalChecks = groups.Sum(c => c.Value == null ? 0 : c.Value.Count);
+                if (totalChecks == 0)
+                    return;
                 int doneCheckIndex = 0;
 
                 foreach (var group in groups)
@@ -296,6 +298,7 @@ namespace XenAdmin.Wizards.PatchingWizard
 
                     var headerRow = new PreCheckHeaderRow(string.Format(Messages.PATCHING_WIZARD_PRECHECK_STATUS, group.Key));
                     //multiply with 100 first, otherwise the quotient is 0
+                    
                     _worker.ReportProgress(doneCheckIndex*100/totalChecks, headerRow);
 
                     PreCheckResult precheckResult = PreCheckResult.OK;

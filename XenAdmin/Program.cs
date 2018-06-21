@@ -375,7 +375,7 @@ namespace XenAdmin
             log.Info("Application main thread exited");
         }
 
-        private static ArgType ParseFileArgs(List<string> args, out string[] filePath)
+        public static ArgType ParseFileArgs(List<string> args, out string[] filePath)
         {
             filePath = new string[args.Count - 1];
             for (int i = 0; i < filePath.Length; i++)
@@ -391,12 +391,22 @@ namespace XenAdmin
                     return ArgType.Restore;
                 case "update":
                     return ArgType.Update;
+                case "open_update_wizard":
+                    return ArgType.OpenUpdateWizard;
+                case "update_wizard.select_servers":
+                    return ArgType.UpdateWizardSelectServers;
+                case "close_open_window":
+                    return ArgType.CloseOpenWindow;
+                case "enableapi":
+                    return ArgType.EnableAPI;
                 case "search":
                     return ArgType.XenSearch;
                 case "passwords":
                     return ArgType.Passwords;
                 case "connect":
                     return ArgType.Connect;
+                case "next":
+                    return ArgType.Next;
                 default:
                     log.Warn("Unrecognised command line options");
                     return ArgType.None;
@@ -1144,5 +1154,5 @@ namespace XenAdmin
         }
     }
 
-    public enum ArgType { Import, License, Restore, Update, None, XenSearch, Passwords, Connect };
+    public enum ArgType { Import, License, Restore, Update, None, XenSearch, Passwords, Connect, OpenUpdateWizard, EnableAPI, Next, UpdateWizardSelectServers, CloseOpenWindow};
 }

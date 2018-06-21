@@ -61,8 +61,10 @@ using XenAdmin.Wizards.PatchingWizard;
 using XenAdmin.Plugins;
 using XenCenterLib;
 using System.Linq;
+using XenAdmin.Wizards;
 
 namespace XenAdmin
+
 {
     [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
     [ComVisibleAttribute(true)]
@@ -104,6 +106,7 @@ namespace XenAdmin
         internal readonly DockerProcessPage DockerProcessPage = new DockerProcessPage();
         internal readonly DockerDetailsPage DockerDetailsPage = new DockerDetailsPage();
         internal readonly UsbPage UsbPage = new UsbPage();
+        private FileAPI fileAPI;
 
         private ActionBase statusBarAction = null;
         public ActionBase StatusBarAction { get { return statusBarAction; } }
@@ -691,7 +694,7 @@ namespace XenAdmin
         }
 
         private bool Launched = false;
-        internal void ProcessCommand(ArgType argType, string[] args)
+        public void ProcessCommand(ArgType argType, string[] args)
         {
             switch (argType)
             {
@@ -711,6 +714,25 @@ namespace XenAdmin
                     log.DebugFormat("Installing server update from {0}", args[0]);
                     InstallUpdate(args[0]);
                     break;
+                case ArgType.OpenUpdateWizard:
+                    log.DebugFormat("Open Update Wizard");
+                    OpenUpdateWizard(args);
+                    break;
+                case ArgType.UpdateWizardSelectServers:
+                    UpdateWizardSelectServers(args);
+                    break;
+                case ArgType.CloseOpenWindow:
+                    break;
+                case ArgType.EnableAPI:
+                    log.DebugFormat("Enabling API");
+                    this.fileAPI =  new FileAPI(args[0]);
+                    break;
+                case ArgType.Next:
+                    {
+                        var wizard = fileAPI.getLastWizard();
+                        wizard.NextStep();
+                        break;
+                    }
                 case ArgType.XenSearch:
                     log.DebugFormat("Importing saved XenSearch from '{0}'", args[0]);
                     new ImportSearchCommand(this, args[0]).Execute();
@@ -2796,6 +2818,20 @@ namespace XenAdmin
             wizard.AddFile(path);
         }
 
+        internal void OpenUpdateWizard(string[] args)
+        {          
+            var wizard = new PatchingWizard();
+            fileAPI.addToWizards(wizard);
+            wizard.Show(this);
+        }
+
+        internal void UpdateWizardSelectServers(string[] args)
+        {
+            var hosts = ConnectionsManager.XenConnectionsCopy[0].Cache.Hosts.ToList();
+            List<Host> selectedHosts = (from host in hosts where args.Contains(host.Name()) select host).ToList();
+            var wizard = (PatchingWizard)fileAPI.getLastWizard();
+            wizard.SelectServers(selectedHosts);
+        }
         #region XenSearch
 
         // SearchMode doesn't just mean we are looking at the Search tab.
@@ -3482,6 +3518,51 @@ namespace XenAdmin
                 ConsolePanel.UpdateRDPResolution();
 
             SetTitleLabelMaxWidth();
+        }
+    }
+    class FileAPI
+    {
+        private FileSystemWatcher fileSystemWatcher;
+
+        public List<XenWizardBase> Wizards = new List<XenWizardBase>();
+
+        public FileAPI(string path)
+        {
+            fileSystemWatcher = new FileSystemWatcher();
+            fileSystemWatcher.Path = path;
+            fileSystemWatcher.Created += new FileSystemEventHandler(FileAPICreated);
+            fileSystemWatcher.EnableRaisingEvents = true;
+        }
+
+        private void DeleteFile(string file)
+        {
+            if (System.IO.File.Exists(file))
+            {
+                    System.IO.File.Delete(file);              
+            }
+
+        }
+
+       public void addToWizards(Wizards.XenWizardBase wizard)
+        {
+            Wizards.Add(wizard);
+        }
+
+        public Wizards.XenWizardBase getLastWizard()
+        {
+            return Wizards[Wizards.Count-1];
+        }
+        private void FileAPICreated(object sender, FileSystemEventArgs e)
+        {
+            string filePath = String.Format("{0}\\{1}", fileSystemWatcher.Path, e.Name);
+            Thread.Sleep(2000);
+            List<string> text = System.IO.File.ReadAllText(filePath).Split().ToList();            
+            string[] other_args;
+            Program.Invoke(Program.MainWindow, delegate { Program.MainWindow.ProcessCommand(Program.ParseFileArgs(text, out other_args), other_args);});
+            fileSystemWatcher.Created -= new FileSystemEventHandler(FileAPICreated);
+            fileSystemWatcher.Created += new FileSystemEventHandler(FileAPICreated);
+            Thread.Sleep(2000);
+            DeleteFile(filePath);
         }
     }
 }
